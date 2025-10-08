@@ -1,0 +1,10 @@
+game/obj
+raylib-5.5/obj
+_build
+_bin
+.vs
+.vscode
+/bin
+/build
+Makefile
+obj

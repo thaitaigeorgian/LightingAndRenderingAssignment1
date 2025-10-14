@@ -1,13 +1,13 @@
 ﻿#include <raylib.h>
 #include <raymath.h>
-
 #include <cassert>
 #include <array>
 #include <vector>
 #include <algorithm>
+#include <string>
+#include <cstdio>
 
 constexpr float SCREEN_SIZE = 800;
-
 constexpr int TILE_COUNT = 20;
 constexpr float TILE_SIZE = SCREEN_SIZE / TILE_COUNT;
 
@@ -18,7 +18,6 @@ enum TileType : int
     WAYPOINT,   // Marks where the path turns, cannot be overwritten
     TURRET,
     COUNT
-    
 };
 
 struct Cell
@@ -38,6 +37,7 @@ void DrawTile(int row, int col, Color color)
 {
     DrawRectangle(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE, color);
 }
+
 
 void DrawTile(int row, int col, int type)
 {
@@ -105,7 +105,7 @@ struct Enemy
     Vector2 position;
     float speed;
     float health;
-    int curr;  
+    int curr;
     int next;
     bool active;
 };
@@ -119,11 +119,46 @@ struct Turret
     float lastShotTime;
 };
 
+struct Bullet
+{
+    Vector2 position;
+    Vector2 velocity;
+    float speed;
+    float damage;
+    bool active;
+};
+
+enum GameState
+{
+    BUILD,
+    RUNNING,
+    GAMEOVER,
+    WIN
+};
+
+struct Level
+{
+    int enemyCount;
+    float enemySpeed;
+    float enemyHealth;
+};
+
 int main()
 {
-    int tiles[TILE_COUNT][TILE_COUNT]
-    {
-        //col:0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19    row:
+    InitWindow(SCREEN_SIZE, SCREEN_SIZE, "Tower Defense - 3 Levels");
+    SetTargetFPS(60);
+
+    int currentLevel = 1;
+    const int maxLevels = 3;
+    GameState state = BUILD;
+
+    std::vector<Level> levels = {
+        { 10, 100, 100 },   // Level 1
+        { 20, 120, 150 },   // Level 2
+        { 30, 150, 200 }    // Level 3
+    };
+
+    int tiles[TILE_COUNT][TILE_COUNT] = {  //col:0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19    row:
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0 }, // 0
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, // 1
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, // 2
@@ -131,150 +166,279 @@ int main()
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, // 4
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, // 5
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 }, // 6
-            { 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 0, 0, 0, 0, 0, 0 }, // 7
+            { 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0 }, // 7
             { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 8
             { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 9
-            { 0, 0, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 10
+            { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 10
             { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 11
-            { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0 }, // 12
+            { 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 12
             { 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0 }, // 13
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 }, // 14
-            { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 0, 0 }, // 15
+            { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 }, // 15
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 }, // 16
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0 }, // 17
             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, // 18
-            { 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }  // 19
+            { 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }  // 19 };
     };
-    std::vector<Cell> waypoints = FloodFill({ 0, 12 }, tiles, WAYPOINT);
-    //int curr = 0;
-    //int next = curr + 1;
 
-    //Vector2 enemyPosition = TileCenter(waypoints[curr].row, waypoints[curr].col);
-    //float enemySpeed = 250.0f;   // <-- 250 pixels per second
-    //float minDistance = enemySpeed / 60.0f;
-    //minDistance *= 1.1f;
-    //bool atEnd = false;
+    std::vector<Cell> waypoints = FloodFill({ 0, 12 }, tiles, WAYPOINT);
+
 
     std::vector<Enemy> enemies;
     std::vector<Turret> turrets;
+    std::vector<Bullet> bullets;
+
     float spawnTimer = 0.0f;
     int enemiesSpawned = 0;
+    bool levelComplete = false;
+    bool playerLost = false;
 
-    // Tạo turret tại vị trí tile = TURRET
-    for (int row = 0; row < TILE_COUNT; row++)
-    {
-        for (int col = 0; col < TILE_COUNT; col++)
-        {
-            if (tiles[row][col] == TURRET)
-            {
-                Turret t;
-                t.position = TileCenter(row, col);
-                t.range = 150.0f;
-                t.damage = 20.0f;
-                t.fireRate = 1.5f;
-                t.lastShotTime = 0.0f;
-                turrets.push_back(t);
-            }
-        }
-    }
-
-
-    InitWindow(SCREEN_SIZE, SCREEN_SIZE, "Tower Defense");
-    SetTargetFPS(60);
     while (!WindowShouldClose())
     {
         float dt = GetFrameTime();
-        spawnTimer += dt;
+        Vector2 mouse = GetMousePosition();
 
-
-        if (spawnTimer >= 1.0f && enemiesSpawned < 10)
+        if (state == BUILD)
         {
-            Enemy e;
-            e.position = TileCenter(waypoints[0].row, waypoints[0].col);
-            e.speed = 100.0f;
-            e.health = 100.0f;
-            e.curr = 0;
-            e.next = 1;
-            e.active = true;
-
-            enemies.push_back(e);
-            enemiesSpawned++;
-            spawnTimer = 0.0f;
-        }
-
-        for (Enemy& e : enemies)
-        {
-            if (!e.active) continue;
-
-            Vector2 from = TileCenter(waypoints[e.curr].row, waypoints[e.curr].col);
-            Vector2 to = TileCenter(waypoints[e.next].row, waypoints[e.next].col);
-            Vector2 direction = Vector2Normalize(to - from);
-            e.position += direction * e.speed * dt;
-
-            float minDistance = e.speed / 60.0f * 1.1f;
-            if (CheckCollisionPointCircle(e.position, to, minDistance))
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             {
-                e.position = to;
-                e.curr++;
-                e.next++;
-                if (e.next >= waypoints.size()) e.active = false;
+                int col = mouse.x / TILE_SIZE;
+                int row = mouse.y / TILE_SIZE;
+                if (InBounds({ row, col }) && tiles[row][col] == GRASS)
+                {
+                    Turret t;
+                    t.position = TileCenter(row, col);
+                    t.range = 150.0f;
+                    t.damage = 20.0f;
+                    t.fireRate = 1.5f;
+                    t.lastShotTime = 0.0f;
+                    turrets.push_back(t);
+                    tiles[row][col] = TURRET;
+                }
+            }
+            if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+            {
+                int col = mouse.x / TILE_SIZE;
+                int row = mouse.y / TILE_SIZE;
+                if (InBounds({ row, col }) && tiles[row][col] == TURRET)
+                {
+                    tiles[row][col] = GRASS;
+                    Vector2 tileCenter = TileCenter(row, col);
+
+                    for (int i = 0; i < turrets.size(); i++)
+                    {
+                        if (Vector2Distance(turrets[i].position, tileCenter) < 1.0f)
+                        {
+                            turrets.erase(turrets.begin() + i);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (turrets.size() >= 5)
+            {
+                enemies.clear();
+                enemiesSpawned = 0;
+                spawnTimer = 0.0f;
+                state = RUNNING;
             }
         }
-        for (Turret& t : turrets)
-        {
-            t.lastShotTime += dt;
 
-            float closestDist = t.range;
-            Enemy* target = nullptr;
+        else if (state == RUNNING)
+        {
+            spawnTimer += dt;
+            Level& lvl = levels[currentLevel - 1];
+
+            if (spawnTimer >= 1.0f && enemiesSpawned < lvl.enemyCount && waypoints.size() >= 2)
+            {
+                Enemy e;
+                e.position = TileCenter(waypoints[0].row, waypoints[0].col);
+                e.speed = lvl.enemySpeed;
+                e.health = lvl.enemyHealth;
+                e.curr = 0;
+                e.next = 1;
+                e.active = true;
+                enemies.push_back(e);
+                enemiesSpawned++;
+                spawnTimer = 0.0f;
+            }
 
             for (Enemy& e : enemies)
             {
                 if (!e.active) continue;
-                float dist = Vector2Distance(t.position, e.position);
-                if (dist < closestDist)
+                Vector2 from = TileCenter(waypoints[e.curr].row, waypoints[e.curr].col);
+                Vector2 to = TileCenter(waypoints[e.next].row, waypoints[e.next].col);
+                Vector2 dir = Vector2Normalize(to - from);
+                e.position += dir * e.speed * dt;
+
+                float minDist = e.speed / 60.0f * 1.1f;
+                if (CheckCollisionPointCircle(e.position, to, minDist))
                 {
-                    closestDist = dist;
-                    target = &e;
+                    e.position = to;
+                    e.curr++;
+                    e.next++;
+                    if (e.next >= waypoints.size())
+                    {
+                        e.active = false;
+                        playerLost = true;
+                    }
                 }
             }
 
-            if (target && t.lastShotTime >= 1.0f / t.fireRate)
+            // Turrets shoot
+            for (Turret& t : turrets)
             {
-                target->health -= t.damage;
-                t.lastShotTime = 0.0f;
+                t.lastShotTime += dt;
+                float closest = t.range;
+                Enemy* target = nullptr;
+
+                for (Enemy& e : enemies)
+                {
+                    if (!e.active) continue;
+                    float dist = Vector2Distance(t.position, e.position);
+                    if (dist < closest)
+                    {
+                        closest = dist;
+                        target = &e;
+                    }
+                }
+
+                if (target && t.lastShotTime >= 1.0f / t.fireRate)
+                {
+                    Bullet b;
+                    b.position = t.position;
+                    Vector2 dir = Vector2Normalize(target->position - t.position);
+                    b.velocity = dir;
+                    b.speed = 300.0f;
+                    b.damage = t.damage;
+                    b.active = true;
+                    bullets.push_back(b);
+
+                    t.lastShotTime = 0.0f;
+                }
+            }
+
+            for (Bullet& b : bullets)
+            {
+                if (!b.active) continue;
+                b.position += b.velocity * b.speed * dt;
+
+                for (Enemy& e : enemies)
+                {
+                    if (!e.active) continue;
+                    if (CheckCollisionCircles(b.position, 5, e.position, 10))
+                    {
+                        e.health -= b.damage;
+                        b.active = false;
+                        break;
+                    }
+                }
+            }
+
+            for (int i = 0; i < bullets.size(); )
+            {
+                if (!bullets[i].active)
+                    bullets.erase(bullets.begin() + i);
+                else
+                    i++;
+            }
+
+            for (Enemy& e : enemies)
+                if (e.health <= 0) e.active = false;
+
+            bool anyActive = false;
+            for (Enemy& e : enemies)
+            {
+                if (e.active)
+                {
+                    anyActive = true;
+                    break;
+                }
+            }
+            if (!anyActive && enemiesSpawned >= lvl.enemyCount)
+            {
+                levelComplete = true;
+            }
+
+            if (playerLost)
+                state = GAMEOVER;
+            else if (levelComplete)
+            {
+                currentLevel++;
+                if (currentLevel > maxLevels)
+                    state = WIN;
+                else
+                {
+                    // Next level setup
+                    turrets.clear();
+                    for (int r = 0; r < TILE_COUNT; r++)
+                        for (int c = 0; c < TILE_COUNT; c++)
+                            if (tiles[r][c] == TURRET) tiles[r][c] = GRASS;
+                    levelComplete = false;
+                    state = BUILD;
+                }
             }
         }
 
-        for (Enemy& e : enemies)
+        else if (state == GAMEOVER)
         {
-            if (e.health <= 0) e.active = false;
+            if (IsKeyPressed(KEY_R))
+            {
+                enemies.clear();
+                turrets.clear();
+                bullets.clear();
+                playerLost = false;
+                for (int r = 0; r < TILE_COUNT; r++)
+                    for (int c = 0; c < TILE_COUNT; c++)
+                        if (tiles[r][c] == TURRET) tiles[r][c] = GRASS;
+                state = BUILD;
+            }
+            if (IsKeyPressed(KEY_ENTER))
+            {
+                currentLevel = 1;
+                enemies.clear();
+                turrets.clear();
+                bullets.clear();
+                playerLost = false;
+                for (int r = 0; r < TILE_COUNT; r++)
+                    for (int c = 0; c < TILE_COUNT; c++)
+                        if (tiles[r][c] == TURRET) tiles[r][c] = GRASS;
+                state = BUILD;
+            }
         }
 
         BeginDrawing();
         ClearBackground(BLACK);
 
         for (int row = 0; row < TILE_COUNT; row++)
-        {
             for (int col = 0; col < TILE_COUNT; col++)
-            {
                 DrawTile(row, col, tiles[row][col]);
-            }
-        }
 
+        for (Bullet& b : bullets)
+            if (b.active)
+                DrawCircleV(b.position, 5, RED);
         for (Enemy& e : enemies)
-        {
-            if (e.active)
-                DrawCircleV(e.position, 10.0f, GOLD);
-        }
+            if (e.active) DrawCircleV(e.position, 10, GOLD);
 
         for (Turret& t : turrets)
         {
-            DrawCircleV(t.position, 12.0f, BLUE);
-            DrawCircleLines(t.position.x, t.position.y, t.range, BLUE);
+            DrawCircleV(t.position, 12, BLUE);
+            DrawCircleLines(t.position.x, t.position.y, t.range, Fade(BLUE, 0.2f));
         }
+
+        DrawText(TextFormat("Level: %i", currentLevel), 10, 10, 20, WHITE);
+
+        if (state == BUILD)
+            DrawText("BUILD MODE: Place 5 turrets to start. Left-click = Place, Right-click = Remove", 10, 40, 18, YELLOW);
+        else if (state == GAMEOVER)
+            DrawText("GAME OVER! Press R to Replay or ENTER to Restart", 200, 400, 24, RED);
+        else if (state == WIN)
+            DrawText("YOU WIN! All 3 levels completed!", 250, 400, 28, GREEN);
 
         EndDrawing();
     }
+
     CloseWindow();
     return 0;
 }

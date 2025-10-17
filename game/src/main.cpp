@@ -147,6 +147,10 @@ int main()
 {
     InitWindow(SCREEN_SIZE, SCREEN_SIZE, "Tower Defense - 3 Levels");
     SetTargetFPS(60);
+    InitAudioDevice();
+    Sound fireSound = LoadSound("fire.mp3");
+    Sound damageSound = LoadSound("damage.mp3");
+    
 
     int currentLevel = 1;
     const int maxLevels = 3;
@@ -214,6 +218,7 @@ int main()
                     t.lastShotTime = 0.0f;
                     turrets.push_back(t);
                     tiles[row][col] = TURRET;
+                    PlaySound(fireSound);
                 }
             }
             if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
@@ -230,9 +235,11 @@ int main()
                         if (Vector2Distance(turrets[i].position, tileCenter) < 1.0f)
                         {
                             turrets.erase(turrets.begin() + i);
+                            PlaySound(fireSound);
                             break;
                         }
                     }
+
                 }
             }
 
@@ -314,6 +321,7 @@ int main()
                     b.damage = t.damage;
                     b.active = true;
                     bullets.push_back(b);
+                    PlaySound(fireSound);
 
                     t.lastShotTime = 0.0f;
                 }
@@ -331,6 +339,7 @@ int main()
                     {
                         e.health -= b.damage;
                         b.active = false;
+                        PlaySound(damageSound);
                         break;
                     }
                 }
@@ -439,6 +448,9 @@ int main()
         EndDrawing();
     }
 
+    UnloadSound(fireSound);
+    UnloadSound(damageSound);
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }

@@ -147,10 +147,14 @@ int main()
 {
     InitWindow(SCREEN_SIZE, SCREEN_SIZE, "Tower Defense - 3 Levels");
     SetTargetFPS(60);
+   
+    // Audio setup
     InitAudioDevice();
-    Sound fireSound = LoadSound("fire.mp3");
-    Sound damageSound = LoadSound("damage.mp3");
-    
+    Sound sTurretPlace = LoadSound("Turret_Place.wav");
+    Sound sTurretBreak = LoadSound("Turret_Break.wav");
+    Sound sTurretFire = LoadSound("Turret_Fire.wav");
+    Sound sEnemyHit = LoadSound("Enemy_Hit.wav");
+    Sound sEnemyDeath = LoadSound("Enemy_Death.wav");
 
     int currentLevel = 1;
     const int maxLevels = 3;
@@ -218,7 +222,7 @@ int main()
                     t.lastShotTime = 0.0f;
                     turrets.push_back(t);
                     tiles[row][col] = TURRET;
-                    PlaySound(fireSound);
+					PlaySound(sTurretPlace);
                 }
             }
             if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
@@ -229,13 +233,14 @@ int main()
                 {
                     tiles[row][col] = GRASS;
                     Vector2 tileCenter = TileCenter(row, col);
+					PlaySound(sTurretBreak);
 
                     for (int i = 0; i < turrets.size(); i++)
                     {
                         if (Vector2Distance(turrets[i].position, tileCenter) < 1.0f)
                         {
                             turrets.erase(turrets.begin() + i);
-                            PlaySound(fireSound);
+          
                             break;
                         }
                     }
@@ -321,7 +326,7 @@ int main()
                     b.damage = t.damage;
                     b.active = true;
                     bullets.push_back(b);
-                    PlaySound(fireSound);
+					PlaySound(sTurretFire); 
 
                     t.lastShotTime = 0.0f;
                 }
@@ -339,7 +344,7 @@ int main()
                     {
                         e.health -= b.damage;
                         b.active = false;
-                        PlaySound(damageSound);
+						PlaySound(sEnemyHit);
                         break;
                     }
                 }
@@ -448,9 +453,12 @@ int main()
         EndDrawing();
     }
 
-    UnloadSound(fireSound);
-    UnloadSound(damageSound);
-    CloseAudioDevice();
+    UnloadSound(sTurretPlace);
+    UnloadSound(sTurretBreak);
+    UnloadSound(sTurretFire);
+    UnloadSound(sEnemyHit);
+    UnloadSound(sEnemyDeath);
+
     CloseWindow();
     return 0;
 }

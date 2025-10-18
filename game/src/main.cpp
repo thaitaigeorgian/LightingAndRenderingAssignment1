@@ -150,11 +150,11 @@ int main()
    
     // Audio setup
     InitAudioDevice();
-    Sound sTurretPlace = LoadSound("Turret_Place.wav");
-    Sound sTurretBreak = LoadSound("Turret_Break.wav");
-    Sound sTurretFire = LoadSound("Turret_Fire.wav");
-    Sound sEnemyHit = LoadSound("Enemy_Hit.wav");
-    Sound sEnemyDeath = LoadSound("Enemy_Death.wav");
+    Sound sTurretPlace = LoadSound("Sounds/Turret_Place.wav");
+    Sound sTurretBreak = LoadSound("Sounds/Turret_Break.wav");
+    Sound sTurretFire = LoadSound("Sounds/Turret_Fire.wav");
+    Sound sEnemyHit = LoadSound("Sounds/Enemy_Hit.wav");
+    Sound sEnemyDeath = LoadSound("Sounds/Enemy_Death.wav");
 
     int currentLevel = 1;
     const int maxLevels = 3;
@@ -233,14 +233,13 @@ int main()
                 {
                     tiles[row][col] = GRASS;
                     Vector2 tileCenter = TileCenter(row, col);
-					PlaySound(sTurretBreak);
 
                     for (int i = 0; i < turrets.size(); i++)
                     {
                         if (Vector2Distance(turrets[i].position, tileCenter) < 1.0f)
                         {
                             turrets.erase(turrets.begin() + i);
-          
+                            PlaySound(sTurretBreak);
                             break;
                         }
                     }
